@@ -13,6 +13,11 @@ ROLE_ENV_MAP = {
     "Rock":     "ROLE_ROCKEGG",
     "Bismuth":  "ROLE_BISMUTHEGG",
     "Magma":    "ROLE_MAGMAEGG"
+    "Star":    "ROLE_STAREGG"
+    "Dino":    "ROLE_DINOEGG"
+    "Pal":    "ROLE_PALEGG"
+    "Block":    "ROLE_BLOCKEGG"
+    "Admin":    "ROLE_ADMINEGG"
 }
 
 # Emoji map
@@ -20,7 +25,13 @@ EGG_EMOJIS = {
     "Slime":    "<:SlimeEgg:1388023015744471141>",
     "Rock":     "<:RockEgg:1388023056894791824>",
     "Bismuth":  "<:BismuthEgg:1388023107369046017>",
-    "Magma":    "<:MagmaEgg:1388023155666194502>"
+    "Magma":    "<:MagmaEgg:1388023155666194502>",
+    "Star":    "<:StarEgg:1388231303387807825>",
+    "Dino":    "<:DinoEgg:1388231160521560148>",
+    "Pal":    "<:PalEgg:1388231204968337429>",
+    "Block":    "<:BlockEgg:1388231081706258573>",
+    "Admin":    "<:AdminEgg:1388230997320929370>",
+    "Ritual":    "<:RitualEgg:1388232871982137374>"
 }
 
 DEFAULT_EMOJI = "<:UnknownEgg:1388022936476323852>"

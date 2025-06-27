@@ -15,6 +15,14 @@ ROLE_ENV_MAP = {
     "Magma":    "ROLE_MAGMAEGG"
 }
 
+# Emoji map
+EGG_EMOJIS = {
+    "Slime":    ":SlimeEgg:",
+    "Rock":     ":RockEgg:",
+    "Bismuth":  ":BismuthEgg:",
+    "Magma":    ":MagmaEgg:"
+}
+
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
@@ -45,7 +53,9 @@ async def on_ready():
             mentions.append(f"{egg} Egg")
 
     # Compose message
-    egg_list_md = "\n".join(f"- {egg}" for egg in eggs)
+    egg_list_md = "\n".join(
+        f"{EGG_EMOJIS.get(egg, '')} {egg}" for egg in eggs
+    )
     mention_line = " ".join(mentions) if mentions else ""
     content = (
         f"🛒 **New Egg Shop**\n"

@@ -58,8 +58,6 @@ async def on_ready():
         role_id = role_map.get(egg)
         if role_id:
             mentions.append(f"<@&{role_id}>")
-        else:
-            mentions.append(f"@{egg}Egg")
 
     # Build the shop list with emojis
     lines = []

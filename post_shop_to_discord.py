@@ -1,53 +1,50 @@
 import os
 import json
+import csv
 import discord
 import asyncio
 
-# Load configuration from environment
+# Bot config
 TOKEN = os.environ['DISCORD_BOT_TOKEN']
 CHANNEL_ID = int(os.environ['DISCORD_CHANNEL_ID'])
+CSV_PATH   = "eggs.csv"
 
-# Environment-variable names for egg-role mappings
-ROLE_ENV_MAP = {
-    "Slime":    "ROLE_SLIMEEGG",
-    "Rock":     "ROLE_ROCKEGG",
-    "Bismuth":  "ROLE_BISMUTHEGG",
-    "Magma":    "ROLE_MAGMAEGG",
-    "Star":    "ROLE_STAREGG",
-    "Dino":    "ROLE_DINOEGG",
-    "Pal":    "ROLE_PALEGG",
-    "Block":    "ROLE_BLOCKEGG",
-    "Admin":    "ROLE_ADMINEGG"
-}
+# Load all emoji & role IDs from CSV
+EGG_DATA = {}
+with open(CSV_PATH, newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        name = row["EggName"]
+        EGG_DATA[name] = {
+            "emoji_id": row.get("EmojiID", "").strip(),
+            "role_id":  row.get("RoleID",  "").strip()
+        }
 
-# Emoji map
-EGG_EMOJIS = {
-    "Slime":    "<:SlimeEgg:1388023015744471141>",
-    "Rock":     "<:RockEgg:1388023056894791824>",
-    "Bismuth":  "<:BismuthEgg:1388023107369046017>",
-    "Magma":    "<:MagmaEgg:1388023155666194502>",
-    "Star":    "<:StarEgg:1388231303387807825>",
-    "Dino":    "<:DinoEgg:1388231160521560148>",
-    "Pal":    "<:PalEgg:1388231204968337429>",
-    "Block":    "<:BlockEgg:1388231081706258573>",
-    "Admin":    "<:AdminEgg:1388230997320929370>",
-    "Ritual":    "<:RitualEgg:1388232871982137374>"
-}
+# Build lookup maps
+emoji_map = {}
+role_map  = {}
+for name, data in EGG_DATA.items():
+    if data["emoji_id"]:
+        emoji_map[name] = f"<:{name}:{data['emoji_id']}>"
+    if data["role_id"]:
+        role_map[name]  = data["role_id"]
 
-DEFAULT_EMOJI = "<:UnknownEgg:1388022936476323852>"
+# Fallback emoji from CSV’s “Unknown” row
+unknown_emoji = emoji_map.get("Unknown", "")
 
+# Initialize Discord client
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    # Load shop data
+    # Load shop.json
     with open("shop.json", "r") as f:
-        data = json.load(f)
-    eggs = data.get("shop", [])
-    timestamp = data.get("generated_at", "unknown time")
+        shop_data = json.load(f)
+    eggs      = shop_data.get("shop", [])
+    timestamp = shop_data.get("generated_at", "unknown time")
 
-    # Deduplicate while preserving order
+    # Deduplicate for role pings
     seen = set()
     unique_eggs = []
     for egg in eggs:
@@ -55,30 +52,33 @@ async def on_ready():
             seen.add(egg)
             unique_eggs.append(egg)
 
-    # Build mentions / names
+    # Build mentions
     mentions = []
     for egg in unique_eggs:
-        env_var = ROLE_ENV_MAP.get(egg)
-        role_id = os.environ.get(env_var) if env_var else None
+        role_id = role_map.get(egg)
         if role_id:
             mentions.append(f"<@&{role_id}>")
         else:
             mentions.append(f"@{egg}Egg")
 
-    # Compose message with emojis
-    egg_list_md = "\n".join(
-        f"{EGG_EMOJIS.get(egg, DEFAULT_EMOJI)} {egg} Egg" for egg in eggs
-    )
-    mention_line = " ".join(mentions) if mentions else ""
+    # Build the shop list with emojis
+    lines = []
+    for egg in eggs:
+        em = emoji_map.get(egg, unknown_emoji)
+        lines.append(f"{em} {egg} Egg")
+    egg_list_md = "\n".join(lines)
+
+    # Compose and send
+    mention_line = " ".join(mentions)
     content = (
         f"🥚 **Egg Shop Refresh!**\n\n"
         f"{egg_list_md}\n\n"
         f"{mention_line}"
     )
 
-    # Send and react
     channel = client.get_channel(CHANNEL_ID)
     msg = await channel.send(content)
+
     for emoji in ("🥳", "😒"):
         await msg.add_reaction(emoji)
 

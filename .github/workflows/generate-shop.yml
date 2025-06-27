@@ -37,3 +37,4 @@ jobs:
           else
             git commit -m "Update shop.json [CI]"
             git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git HEAD:main
+          fi

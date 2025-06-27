@@ -23,6 +23,8 @@ EGG_EMOJIS = {
     "Magma":    ":MagmaEgg:"
 }
 
+DEFAULT_EMOJI = ":UnknownEgg:"
+
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
@@ -52,9 +54,9 @@ async def on_ready():
         else:
             mentions.append(f"{egg} Egg")
 
-    # Compose message
+    # Compose message with emojis
     egg_list_md = "\n".join(
-        f"{EGG_EMOJIS.get(egg, '')} {egg}" for egg in eggs
+        f"{EGG_EMOJIS.get(egg, DEFAULT_EMOJI)} {egg}" for egg in eggs
     )
     mention_line = " ".join(mentions) if mentions else ""
     content = (

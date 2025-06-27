@@ -56,7 +56,7 @@ async def on_ready():
     # Send and react
     channel = client.get_channel(CHANNEL_ID)
     msg = await channel.send(content)
-    for emoji in ("👍", "😐", "👎"):
+    for emoji in ("👍", "👎"):
         await msg.add_reaction(emoji)
 
     await client.close()

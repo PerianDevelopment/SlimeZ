@@ -16,8 +16,13 @@ def load_eggs(csv_path):
             })
     return eggs
 
-def create_seed_from_secret(secret_key):
-    h = hashlib.sha256(secret_key.encode("utf-8")).hexdigest()
+def create_seed_from_secret_and_time(secret_key):
+    now = datetime.now(timezone.utc)
+    # Round down to nearest 5 minutes
+    rounded_minute = now.minute - (now.minute % 5)
+    time_component = now.strftime(f"%Y-%m-%dT%H:{rounded_minute:02d}")
+    combined = f"{secret_key}:{time_component}"
+    h = hashlib.sha256(combined.encode("utf-8")).hexdigest()
     seed_int = int(h, 16) % (2**32)
     return seed_int
 
@@ -45,7 +50,7 @@ def main():
     csv_path = sys.argv[2]
 
     eggs = load_eggs(csv_path)
-    seed = create_seed_from_secret(secret_key)
+    seed = create_seed_from_secret_and_time(secret_key)
     rng = random.Random(seed)
 
     shop = weighted_choice_with_replacement(eggs, 5, rng)

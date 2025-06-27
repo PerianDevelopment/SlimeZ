@@ -2,24 +2,27 @@ name: Generate Shop Every 5 Minutes
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # Every 5 minutes
-  workflow_dispatch:
+    - cron: "*/5 * * * *"  # Every 5 minutes (UTC)
+  workflow_dispatch:       # Allow manual trigger
 
 jobs:
   generate-shop:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo (no auth token)
+      - name: Checkout repo (no default token)
         uses: actions/checkout@v4
         with:
-          persist-credentials: false   # disable the default GITHUB_TOKEN checkout
+          persist-credentials: false
 
-      - name: Set Git remote with PUSH_TOKEN
+      - name: Configure Git remote with PUSH_TOKEN
         env:
           TOKEN: ${{ secrets.PUSH_TOKEN }}
         run: |
           git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git
+
+      - name: Log UTC timestamp
+        run: date -u
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,7 +30,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
-        run: pip install --upgrade pip
+        run: pip install --upgrade pip discord.py
 
       - name: Generate shop
         run: python generate_shop.py "${{ secrets.SECRET_KEY }}" eggs.csv
@@ -43,3 +46,14 @@ jobs:
             git commit -m "Update shop.json [CI]"
             git push origin HEAD:main
           fi
+
+      - name: Announce shop on Discord
+        if: success()
+        env:
+          DISCORD_BOT_TOKEN:   ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID:  ${{ secrets.DISCORD_CHANNEL_ID }}
+          ROLE_SLIMEEGG:       ${{ secrets.ROLE_SLIMEEGG }}
+          ROLE_ROCKEGG:        ${{ secrets.ROLE_ROCKEGG }}
+          ROLE_BISMUTHEGG:     ${{ secrets.ROLE_BISMUTHEGG }}
+          ROLE_MAGMAEGG:       ${{ secrets.ROLE_MAGMAEGG }}
+        run: python post_shop_to_discord.py

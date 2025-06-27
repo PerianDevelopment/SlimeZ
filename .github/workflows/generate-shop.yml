@@ -3,7 +3,7 @@ name: Generate Shop Every 5 Minutes
 on:
   schedule:
     - cron: "*/5 * * * *"  # Every 5 minutes
-  workflow_dispatch:       # Also allows manual trigger
+  workflow_dispatch:       # Allow manual trigger too
 
 jobs:
   generate-shop:
@@ -25,6 +25,8 @@ jobs:
         run: python generate_shop.py "${{ secrets.SECRET_KEY }}" eggs.csv
 
       - name: Commit and push if changed
+        env:
+          TOKEN: ${{ secrets.PUSH_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -33,5 +35,4 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update shop.json [CI]"
-            git push
-          fi
+            git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git HEAD:main

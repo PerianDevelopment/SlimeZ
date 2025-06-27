@@ -12,11 +12,11 @@ ROLE_ENV_MAP = {
     "Slime":    "ROLE_SLIMEEGG",
     "Rock":     "ROLE_ROCKEGG",
     "Bismuth":  "ROLE_BISMUTHEGG",
-    "Magma":    "ROLE_MAGMAEGG"
-    "Star":    "ROLE_STAREGG"
-    "Dino":    "ROLE_DINOEGG"
-    "Pal":    "ROLE_PALEGG"
-    "Block":    "ROLE_BLOCKEGG"
+    "Magma":    "ROLE_MAGMAEGG",
+    "Star":    "ROLE_STAREGG",
+    "Dino":    "ROLE_DINOEGG",
+    "Pal":    "ROLE_PALEGG",
+    "Block":    "ROLE_BLOCKEGG",
     "Admin":    "ROLE_ADMINEGG"
 }
 

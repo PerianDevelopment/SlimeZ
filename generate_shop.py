@@ -75,7 +75,7 @@ def main():
     # Generate shop immediately using seed based on current rounded 5-min time
     seed = create_seed_from_secret_and_time(secret_key)
     rng = random.Random(seed)
-    shop = weighted_choice_with_replacement(eggs, 5, rng)
+    shop = weighted_choice_with_replacement(eggs, 3, rng)
 
     # Wait until next 5-minute mark before writing file
     wait_until_next_5min_mark()

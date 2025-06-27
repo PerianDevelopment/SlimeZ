@@ -17,13 +17,13 @@ ROLE_ENV_MAP = {
 
 # Emoji map
 EGG_EMOJIS = {
-    "Slime":    "<:SlimeEgg:1388003977467007156>",
-    "Rock":     "<:RockEgg:1388004006332203088>",
-    "Bismuth":  "<:BismuthEgg:1388004032299274271>",
-    "Magma":    "<:MagmaEgg:1388004057322356817>"
+    "Slime":    "<:SlimeEgg:1388023015744471141>",
+    "Rock":     "<:RockEgg:1388023056894791824>",
+    "Bismuth":  "<:BismuthEgg:1388023107369046017>",
+    "Magma":    "<:MagmaEgg:1388023155666194502>"
 }
 
-DEFAULT_EMOJI = "<:UnknownEgg:1388005020607447180>"
+DEFAULT_EMOJI = "<:UnknownEgg:1388022936476323852>"
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)

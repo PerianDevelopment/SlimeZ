@@ -60,7 +60,7 @@ async def on_ready():
     )
     mention_line = " ".join(mentions) if mentions else ""
     content = (
-        f"🛒 **New Egg Shop**\n"
+        f"🥚 **New Egg Shop**\n\n"
         f"{egg_list_md}\n\n"
         f"{mention_line}"
     )

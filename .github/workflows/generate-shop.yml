@@ -3,7 +3,7 @@ name: Generate Shop Every 5 Minutes
 on:
   schedule:
     - cron: "*/5 * * * *"  # Every 5 minutes
-  workflow_dispatch:       # Allow manual trigger too
+  workflow_dispatch:
 
 jobs:
   generate-shop:
@@ -22,7 +22,8 @@ jobs:
         run: pip install --upgrade pip
 
       - name: Generate shop
-        run: python generate_shop.py "${{ secrets.SECRET_KEY }}" eggs.csv
+        run: |
+          python generate_shop.py "${{ secrets.SECRET_KEY }}" eggs.csv
 
       - name: Commit and push if changed
         env:

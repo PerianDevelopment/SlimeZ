@@ -1,5 +1,11 @@
 EggName,PullChance
-Slime,40.0
-Rock,30.0
+Slime,0
+Rock,50.0
 Bismuth,20.0
 Magma,10.0
+Star,2.0
+Dino,10.0
+Pal,5.0
+Block,3.0
+Admin,0.0
+Ritual,0.0

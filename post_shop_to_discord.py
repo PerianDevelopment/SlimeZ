@@ -48,9 +48,9 @@ async def on_ready():
     egg_list_md = "\n".join(f"- {egg}" for egg in eggs)
     mention_line = " ".join(mentions) if mentions else ""
     content = (
-        f"{mention_line}"
         f"🛒 **New Egg Shop**\n"
         f"{egg_list_md}\n\n"
+        f"{mention_line}"
     )
 
     # Send and react

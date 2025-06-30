@@ -41,7 +41,7 @@ async def on_ready():
     # Load shop.json
     with open("shop.json", "r") as f:
         shop_data = json.load(f)
-    eggs      = shop_data.get("shop", [])
+    eggs      = shop_data.get("current_shop", [])
     timestamp = shop_data.get("generated_at", "unknown time")
 
     # Deduplicate for role pings
@@ -73,8 +73,13 @@ async def on_ready():
         f"{egg_list_md}\n\n"
         f"{mention_line}"
     )
-
+    
     channel = client.get_channel(CHANNEL_ID)
+    if channel is None:
+        print(f"Error: Could not find channel with ID {CHANNEL_ID}")
+        await client.close()
+        return
+        
     msg = await channel.send(content)
 
     for emoji in ("🥳", "😒"):

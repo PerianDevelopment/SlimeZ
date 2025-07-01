@@ -44,6 +44,25 @@ def weighted_choice_with_replacement(eggs, n, rng):
 def round_down_to_5min(dt):
     return dt - timedelta(minutes=dt.minute % 5, seconds=dt.second, microseconds=dt.microsecond)
 
+def wait_until_next_5min_mark():
+    now = datetime.now(timezone.utc)
+    next_minute = (now.minute - now.minute % 5) + 5
+    if next_minute >= 60:
+        next_hour = (now.hour + 1) % 24
+        next_minute = 0
+        next_time = now.replace(hour=next_hour, minute=next_minute, second=0, microsecond=0)
+        if now.hour == 23:
+            next_time += timedelta(days=1)
+    else:
+        next_time = now.replace(minute=next_minute, second=0, microsecond=0)
+
+    wait_seconds = (next_time - now).total_seconds()
+    if wait_seconds > 0:
+        print(f"Waiting {wait_seconds:.1f} seconds until next 5-min mark ({next_time.isoformat()})")
+        time.sleep(wait_seconds)
+    else:
+        print("Already at or past 5-min mark, not waiting.")
+
 def main():
     if len(sys.argv) < 3:
         print("Usage: python generate_shop.py <secret_key> <eggs.csv>")
@@ -66,7 +85,6 @@ def main():
         except Exception as e:
             print(f"Warning: Failed to load existing shop.json: {e}")
 
-    # Parse existing generated_at if possible
     existing_generated_at = None
     existing_next_shop = None
     if existing_data:
@@ -76,21 +94,17 @@ def main():
         except Exception as e:
             print(f"Warning: Failed to parse existing generated_at or next_shop: {e}")
 
-    # Decide what to generate
     if existing_generated_at and existing_next_shop:
         diff = now_5min - existing_generated_at
         if timedelta(0) <= diff < timedelta(minutes=5):
-            # Within the 5 minute window: shift next_shop to current, generate new next_shop
             print("Using existing next_shop as current_shop, generating new next_shop.")
             current_shop = existing_next_shop
-            # Seed for new next_shop generation is now_5min + 5 minutes
             next_seed_time = now_5min + timedelta(minutes=5)
             next_seed = create_seed_from_secret_and_time(secret_key, next_seed_time)
             rng = random.Random(next_seed)
             next_shop = weighted_choice_with_replacement(eggs, 3, rng)
             generated_at = now_5min
         else:
-            # Existing data is too old: generate both new current and next shops
             print("Existing shop is old or in the past, generating two new shops.")
             seed_current = create_seed_from_secret_and_time(secret_key, now_5min)
             rng_current = random.Random(seed_current)
@@ -102,7 +116,6 @@ def main():
 
             generated_at = now_5min
     else:
-        # No valid existing data, generate two new shops
         print("No existing shop found, generating two new shops.")
         seed_current = create_seed_from_secret_and_time(secret_key, now_5min)
         rng_current = random.Random(seed_current)
@@ -113,6 +126,9 @@ def main():
         next_shop = weighted_choice_with_replacement(eggs, 3, rng_next)
 
         generated_at = now_5min
+
+    # Wait until next 5-min mark before saving shop.json
+    wait_until_next_5min_mark()
 
     output = {
         "generated_at": generated_at.isoformat() + "Z",

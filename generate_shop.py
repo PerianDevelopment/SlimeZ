@@ -1,147 +1,195 @@
 import csv
 import json
-import sys
+import time
 import hashlib
 import random
-import time
+import logging
+import argparse
+from pathlib import Path
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
-import os
+from typing import List, Optional, Tuple
 
-def load_eggs(csv_path):
+# --- Configuration ---
+SHOP_SIZE = 3
+OUTPUT_FILENAME = "shop.json"
+TIME_INTERVAL_MINUTES = 5
+
+# --- Setup Logging ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# --- Data Structures ---
+@dataclass(frozen=True)
+class Egg:
+    """Represents an egg with a name and pull chance."""
+    name: str
+    chance: float
+
+@dataclass
+class ShopState:
+    """Represents the generated state of the shop."""
+    generated_at: datetime
+    current_shop: List[str]
+    next_shop: List[str]
+
+    def to_dict(self) -> dict:
+        """Serializes the state to a dictionary for JSON output."""
+        return {
+            "generated_at": self.generated_at.isoformat().replace("+00:00", "Z"),
+            "current_shop": self.current_shop,
+            "next_shop": self.next_shop,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Optional['ShopState']:
+        """Deserializes a dictionary into a ShopState object."""
+        try:
+            generated_at_str = data["generated_at"].replace("Z", "+00:00")
+            return cls(
+                generated_at=datetime.fromisoformat(generated_at_str),
+                current_shop=data["current_shop"],
+                next_shop=data["next_shop"],
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            logging.warning(f"Could not parse existing shop data: {e}")
+            return None
+
+# --- Core Logic Class ---
+class ShopGenerator:
+    """
+    Handles the logic for deterministically generating shop inventories
+    based on a secret key and time.
+    """
+    def __init__(self, secret_key: str, eggs: List[Egg]):
+        if not eggs:
+            raise ValueError("Egg list cannot be empty.")
+        self.secret_key = secret_key
+        self.eggs = eggs
+        self.egg_names = [egg.name for egg in self.eggs]
+        self.egg_weights = [egg.chance for egg in self.eggs]
+
+    def _create_seed(self, dt: datetime) -> int:
+        """Creates a deterministic integer seed from a secret key and timestamp."""
+        time_str = dt.strftime("%Y-%m-%dT%H:%M")
+        combined = f"{self.secret_key}:{time_str}".encode("utf-8")
+        h = hashlib.sha256(combined).hexdigest()
+        return int(h, 16)
+
+    def _generate_shop_inventory(self, seed_dt: datetime) -> List[str]:
+        """Generates a list of eggs for a specific time using a deterministic seed."""
+        seed = self._create_seed(seed_dt)
+        rng = random.Random(seed)
+        # Use the highly optimized random.choices for weighted selection
+        return rng.choices(self.egg_names, weights=self.egg_weights, k=SHOP_SIZE)
+
+    def generate_shops_for_time(self, current_time_slot: datetime) -> ShopState:
+        """Generates the current and next shop inventories."""
+        logging.info(f"Generating new shops for time slot: {current_time_slot.isoformat()}")
+        current_shop = self._generate_shop_inventory(current_time_slot)
+        
+        next_time_slot = current_time_slot + timedelta(minutes=TIME_INTERVAL_MINUTES)
+        next_shop = self._generate_shop_inventory(next_time_slot)
+        
+        return ShopState(
+            generated_at=current_time_slot,
+            current_shop=current_shop,
+            next_shop=next_shop
+        )
+
+# --- Helper & Utility Functions ---
+def load_eggs_from_csv(csv_path: Path) -> List[Egg]:
+    """Loads egg definitions from a CSV file."""
     eggs = []
-    with open(csv_path, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            eggs.append({
-                "name": row["EggName"],
-                "chance": float(row["PullChance"])
-            })
-    return eggs
+    try:
+        with csv_path.open(newline="", encoding="utf-8") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for i, row in enumerate(reader, 1):
+                try:
+                    eggs.append(Egg(name=row["EggName"], chance=float(row["PullChance"])))
+                except (KeyError, ValueError) as e:
+                    logging.warning(f"Skipping malformed row {i} in {csv_path}: {e}")
+        logging.info(f"Successfully loaded {len(eggs)} eggs from {csv_path}.")
+        return eggs
+    except FileNotFoundError:
+        logging.critical(f"Error: Egg CSV file not found at {csv_path}")
+        raise
+    except Exception as e:
+        logging.critical(f"An unexpected error occurred while reading {csv_path}: {e}")
+        raise
 
-def create_seed_from_secret_and_time(secret_key, dt):
-    # dt is a datetime rounded to 5-min mark
-    time_component = dt.strftime("%Y-%m-%dT%H:%M")
-    combined = f"{secret_key}:{time_component}"
-    h = hashlib.sha256(combined.encode("utf-8")).hexdigest()
-    seed_int = int(h, 16) % (2**32)
-    return seed_int
+def get_current_time_slot() -> datetime:
+    """Rounds the current UTC time down to the nearest 5-minute interval."""
+    now_utc = datetime.now(timezone.utc)
+    return now_utc - timedelta(
+        minutes=now_utc.minute % TIME_INTERVAL_MINUTES,
+        seconds=now_utc.second,
+        microseconds=now_utc.microsecond,
+    )
 
-def weighted_choice_with_replacement(eggs, n, rng):
-    choices = []
-    weights = [egg["chance"] for egg in eggs]
-    total_weight = sum(weights)
-    normalized_weights = [w / total_weight for w in weights]
-    for _ in range(n):
-        r = rng.random()
-        cumulative = 0
-        for egg, w in zip(eggs, normalized_weights):
-            cumulative += w
-            if r < cumulative:
-                choices.append(egg["name"])
-                break
-    return choices
+def wait_for_next_interval(current_time_slot: datetime):
+    """Waits precisely until the start of the next time interval."""
+    next_interval_start = current_time_slot + timedelta(minutes=TIME_INTERVAL_MINUTES)
+    now_utc = datetime.now(timezone.utc)
+    wait_seconds = (next_interval_start - now_utc).total_seconds()
 
-def round_down_to_5min(dt):
-    return dt - timedelta(minutes=dt.minute % 5, seconds=dt.second, microseconds=dt.microsecond)
-
-def wait_until_next_5min_mark():
-    now = datetime.now(timezone.utc)
-    next_minute = (now.minute - now.minute % 5) + 5
-    if next_minute >= 60:
-        next_hour = (now.hour + 1) % 24
-        next_minute = 0
-        next_time = now.replace(hour=next_hour, minute=next_minute, second=0, microsecond=0)
-        if now.hour == 23:
-            next_time += timedelta(days=1)
-    else:
-        next_time = now.replace(minute=next_minute, second=0, microsecond=0)
-
-    wait_seconds = (next_time - now).total_seconds()
     if wait_seconds > 0:
-        print(f"Waiting {wait_seconds:.1f} seconds until next 5-min mark ({next_time.isoformat()})")
+        logging.info(
+            f"Waiting {wait_seconds:.2f} seconds until the next interval at "
+            f"{next_interval_start.isoformat()}"
+        )
         time.sleep(wait_seconds)
     else:
-        print("Already at or past 5-min mark, not waiting.")
+        logging.info("Time slot has already passed; not waiting.")
 
+# --- Main Execution ---
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: python generate_shop.py <secret_key> <eggs.csv>")
-        sys.exit(1)
+    """Main function to parse arguments and run the shop generation logic."""
+    parser = argparse.ArgumentParser(
+        description="Deterministically generate a game shop inventory.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("secret_key", help="The secret key for deterministic generation.")
+    parser.add_argument("csv_path", type=Path, help="Path to the eggs CSV file.")
+    parser.add_argument(
+        "--output", type=Path, default=Path(OUTPUT_FILENAME), help="Path for the output JSON file."
+    )
+    args = parser.parse_args()
 
-    secret_key = sys.argv[1]
-    csv_path = sys.argv[2]
+    try:
+        eggs = load_eggs_from_csv(args.csv_path)
+    except (FileNotFoundError, ValueError):
+        return  # Exit if egg loading fails
 
-    eggs = load_eggs(csv_path)
+    generator = ShopGenerator(args.secret_key, eggs)
+    current_time_slot = get_current_time_slot()
+    
+    # Load previous state if it exists and is valid
+    existing_state: Optional[ShopState] = None
+    if args.output.exists():
+        with args.output.open("r") as f:
+            existing_state = ShopState.from_dict(json.load(f))
 
-    now = datetime.now(timezone.utc)
-    now_5min = round_down_to_5min(now)
-
-    # Attempt to load existing shop.json if exists
-    existing_data = None
-    if os.path.isfile("shop.json"):
-        try:
-            with open("shop.json", "r") as f:
-                existing_data = json.load(f)
-        except Exception as e:
-            print(f"Warning: Failed to load existing shop.json: {e}")
-
-    existing_generated_at = None
-    existing_next_shop = None
-    if existing_data:
-        try:
-            existing_generated_at = datetime.fromisoformat(existing_data.get("generated_at").replace("Z", "+00:00"))
-            existing_next_shop = existing_data.get("next_shop")
-        except Exception as e:
-            print(f"Warning: Failed to parse existing generated_at or next_shop: {e}")
-
-    if existing_generated_at and existing_next_shop:
-        diff = now_5min - existing_generated_at
-        if timedelta(0) <= diff < timedelta(minutes=5):
-            print("Using existing next_shop as current_shop, generating new next_shop.")
-            current_shop = existing_next_shop
-            next_seed_time = now_5min + timedelta(minutes=5)
-            next_seed = create_seed_from_secret_and_time(secret_key, next_seed_time)
-            rng = random.Random(next_seed)
-            next_shop = weighted_choice_with_replacement(eggs, 3, rng)
-            generated_at = now_5min
-        else:
-            print("Existing shop is old or in the past, generating two new shops.")
-            seed_current = create_seed_from_secret_and_time(secret_key, now_5min)
-            rng_current = random.Random(seed_current)
-            current_shop = weighted_choice_with_replacement(eggs, 3, rng_current)
-
-            seed_next = create_seed_from_secret_and_time(secret_key, now_5min + timedelta(minutes=5))
-            rng_next = random.Random(seed_next)
-            next_shop = weighted_choice_with_replacement(eggs, 3, rng_next)
-
-            generated_at = now_5min
+    # Determine the final state to be written
+    if existing_state and existing_state.generated_at == current_time_slot:
+        logging.info("Shop data is already up-to-date for the current time slot. No action needed.")
+        final_state = existing_state
     else:
-        print("No existing shop found, generating two new shops.")
-        seed_current = create_seed_from_secret_and_time(secret_key, now_5min)
-        rng_current = random.Random(seed_current)
-        current_shop = weighted_choice_with_replacement(eggs, 3, rng_current)
+        final_state = generator.generate_shops_for_time(current_time_slot)
 
-        seed_next = create_seed_from_secret_and_time(secret_key, now_5min + timedelta(minutes=5))
-        rng_next = random.Random(seed_next)
-        next_shop = weighted_choice_with_replacement(eggs, 3, rng_next)
+    # Wait until the precise moment to update the shop file
+    wait_for_next_interval(current_time_slot)
 
-        generated_at = now_5min
-
-    # Wait until next 5-min mark before saving shop.json
-    wait_until_next_5min_mark()
-
-    output = {
-        "generated_at": generated_at.isoformat() + "Z",
-        "current_shop": current_shop,
-        "next_shop": next_shop
-    }
-
-    with open("shop.json", "w") as f:
-        json.dump(output, f, indent=2)
-
-    print(f"Shop generated at {generated_at.isoformat()}Z")
-    print(f"Current shop: {current_shop}")
-    print(f"Next shop: {next_shop}")
+    # Write the new shop data
+    with args.output.open("w") as f:
+        json.dump(final_state.to_dict(), f, indent=2)
+    
+    logging.info(f"Successfully wrote new shop data to {args.output}")
+    logging.info(f"Current Shop: {final_state.current_shop}")
+    logging.info(f"Next Shop: {final_state.next_shop}")
 
 if __name__ == "__main__":
     main()

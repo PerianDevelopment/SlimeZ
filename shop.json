@@ -1,13 +1,13 @@
 {
-  "generated_at": "2025-07-09T02:10:00+00:00Z",
+  "generated_at": "2025-07-09T02:15:00+00:00Z",
   "current_shop": [
-    "Block",
-    "Bismuth",
-    "Rock"
-  ],
-  "next_shop": [
     "Star",
     "Rock",
+    "Bismuth"
+  ],
+  "next_shop": [
+    "Rock",
+    "Bismuth",
     "Bismuth"
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-12T15:50:00+00:00Z",
+  "generated_at": "2025-07-12T15:55:00+00:00Z",
   "current_shop": [
     "Rock",
     "Bismuth",
@@ -7,7 +7,7 @@
   ],
   "next_shop": [
     "Rock",
-    "Bismuth",
-    "Dino"
+    "Rock",
+    "Rock"
   ]
 }
